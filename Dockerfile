@@ -18,11 +18,11 @@ FROM base as build
 
 # Install required system packages
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips pkg-config
+    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips pkg-config curl
 
 # Install Node.js & Yarn for asset compilation
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install --no-install-recommends -y nodejs && \
+    apt-get install --no-install-recommends -y nodejs npm && \
     npm install -g yarn
 
 # Copy Gemfile and Gemfile.lock and install gems
