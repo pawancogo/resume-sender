@@ -1,0 +1,9 @@
+{
+  "name": "app",
+  "private": "true",
+  "scripts": {
+  },
+  "devDependencies": {
+    "sass": "^1.85.1"
+  }
+}
