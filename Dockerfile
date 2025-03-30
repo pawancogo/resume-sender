@@ -1,23 +1,18 @@
 # syntax = docker/dockerfile:1
 
-# Define Ruby version
 ARG RUBY_VERSION=3.2.2
 FROM registry.docker.com/library/ruby:$RUBY_VERSION-slim as base
 
-# Set working directory
 WORKDIR /rails
 
-# Set environment variables for production
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
     BUNDLE_WITHOUT="development" \
     NODE_ENV="production"
 
-# Build stage - used to install dependencies and compile assets
 FROM base as build
 
-# Install required system packages
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
     build-essential \
@@ -28,40 +23,27 @@ RUN apt-get update -qq && \
     curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 18.x (npm comes bundled)
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install --no-install-recommends -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files first for better caching
 COPY Gemfile Gemfile.lock ./
-
-# Install gems
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
-# Copy package files
 COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && \
+    npm install -g tailwindcss
 
-# Install JavaScript dependencies
-RUN npm ci --only=production
-
-# Copy the rest of the application
 COPY . .
 
-# Build CSS (ensure this script exists in your package.json)
-RUN if [ -f "package.json" ]; then npm run build:css; fi
+RUN npx tailwindcss -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --minify
 
-# Precompile bootsnap for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
-
-# Precompile assets safely using a dummy secret key
 RUN SECRET_KEY_BASE=dummy ./bin/rails assets:precompile
 
-# Final deployment image
 FROM base
 
-# Install required runtime packages
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
     curl \
@@ -69,7 +51,18 @@ RUN apt-get update -qq && \
     postgresql-client && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives
 
-# Copy built artifacts from the build stage
+COPY --from=build /usr/local/bundle /usr/local/bundle
+COPY --from=build /rails /rails
+
+RUN useradd rails --create-home --shell /bin/bash && \
+    chown -R rails:rails db log storage tmp
+
+WORKDIR /rails
+USER rails:rails
+
+ENTRYPOINT ["/rails/bin/docker-entrypoint"]
+EXPOSE 3099
+CMD ["./bin/rails", "server", "-b", "0.0.0.0"]# Copy built artifacts from the build stage
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
 

@@ -4,6 +4,9 @@
   "scripts": {
     "build:css": "tailwindcss -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --minify"
   },
+  "dependencies": {
+    "tailwindcss": "^3.4.1"
+  },
   "devDependencies": {
     "sass": "^1.85.1"
   }
