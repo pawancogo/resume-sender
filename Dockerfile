@@ -8,9 +8,9 @@ FROM registry.docker.com/library/ruby:$RUBY_VERSION-slim as base
 WORKDIR /rails
 
 # Set environment variables for production
-ENV RAILS_ENV="production" \
-    BUNDLE_DEPLOYMENT="1" \
-    BUNDLE_PATH="/usr/local/bundle" \
+ENV RAILS_ENV="production" \ 
+    BUNDLE_DEPLOYMENT="1" \ 
+    BUNDLE_PATH="/usr/local/bundle" \ 
     BUNDLE_WITHOUT="development"
 
 # Build stage - used to install dependencies and compile assets
@@ -35,8 +35,8 @@ RUN bundle install && \
 # Copy application source code
 COPY . .
 
-# Install JavaScript dependencies
-RUN yarn install
+# Install JavaScript dependencies and ensure CSS build script is present
+RUN yarn install && yarn build:css
 
 # Precompile bootsnap for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/

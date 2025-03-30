@@ -84,3 +84,6 @@ gem 'jwt'
 
 gem 'dotenv-rails'
 gem 'twilio-ruby'
+
+gem 'cssbundling-rails'
+
