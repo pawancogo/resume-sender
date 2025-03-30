@@ -28,10 +28,9 @@ RUN apt-get update -qq && \
     curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 18.x & Yarn
+# Install Node.js 18.x (npm comes bundled)
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install --no-install-recommends -y nodejs && \
-    npm install -g yarn && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files first for better caching
@@ -41,17 +40,17 @@ COPY Gemfile Gemfile.lock ./
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
-# Copy package.json and yarn.lock before running yarn
-COPY package.json yarn.lock ./
+# Copy package files
+COPY package.json package-lock.json ./
 
 # Install JavaScript dependencies
-RUN yarn install --frozen-lockfile --production
+RUN npm ci --only=production
 
 # Copy the rest of the application
 COPY . .
 
 # Build CSS (ensure this script exists in your package.json)
-RUN if [ -f "package.json" ]; then yarn build:css; fi
+RUN if [ -f "package.json" ]; then npm run build:css; fi
 
 # Precompile bootsnap for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
