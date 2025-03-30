@@ -22,8 +22,9 @@ RUN apt-get update -qq && \
 
 # Install Node.js & Yarn for asset compilation
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install --no-install-recommends -y nodejs npm && \
-    npm install -g yarn
+    apt-get install --no-install-recommends -y nodejs && \
+    corepack enable && \
+    corepack prepare yarn@stable --activate
 
 # Copy Gemfile and Gemfile.lock and install gems
 COPY Gemfile Gemfile.lock ./
