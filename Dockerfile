@@ -1,62 +1,70 @@
 # syntax = docker/dockerfile:1
 
-# Make sure RUBY_VERSION matches the Ruby version in .ruby-version and Gemfile
+# Define Ruby version
 ARG RUBY_VERSION=3.2.2
 FROM registry.docker.com/library/ruby:$RUBY_VERSION-slim as base
 
-# Rails app lives here
+# Set working directory
 WORKDIR /rails
 
-# Set production environment
+# Set environment variables for production
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
     BUNDLE_WITHOUT="development"
 
-
-# Throw-away build stage to reduce size of final image
+# Build stage - used to install dependencies and compile assets
 FROM base as build
 
-# Install packages needed to build gems
+# Install required system packages
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential git libpq-dev libvips pkg-config
 
-# Install application gems
+# Install Node.js & Yarn for asset compilation
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install --no-install-recommends -y nodejs && \
+    npm install -g yarn
+
+# Copy Gemfile and Gemfile.lock and install gems
 COPY Gemfile Gemfile.lock ./
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
     bundle exec bootsnap precompile --gemfile
 
-# Copy application code
+# Copy application source code
 COPY . .
 
-# Precompile bootsnap code for faster boot times
+# Install JavaScript dependencies
+RUN yarn install --check-files
+
+# Precompile bootsnap for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
 
-# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
-RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
+# Precompile assets safely using a dummy secret key
+RUN RAILS_ENV=production SECRET_KEY_BASE=placeholder ./bin/rails assets:precompile
 
-
-# Final stage for app image
+# Final deployment image
 FROM base
 
-# Install packages needed for deployment
+# Install required runtime packages
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y curl libvips postgresql-client && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
-# Copy built artifacts: gems, application
+# Copy built artifacts from the build stage
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
 
-# Run and own only the runtime files as a non-root user for security
+# Create a non-root user and set ownership
 RUN useradd rails --create-home --shell /bin/bash && \
     chown -R rails:rails db log storage tmp
 USER rails:rails
 
-# Entrypoint prepares the database.
+# Set entrypoint script to prepare database
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
-# Start the server by default, this can be overwritten at runtime
+# Expose application port
 EXPOSE 3099
+
+# Start the Rails server by default
 CMD ["./bin/rails", "server"]
