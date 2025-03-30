@@ -36,7 +36,7 @@ RUN bundle install && \
 COPY . .
 
 # Install JavaScript dependencies
-RUN yarn install --check-files
+RUN yarn install
 
 # Precompile bootsnap for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
